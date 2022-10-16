@@ -62,23 +62,29 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
       }
     },
     // done
-    () => {
+    async () => {
       // console.log(out);
 
-      const url = out[0].image;
-      const id = out[0].id;
-      console.log(url)
-      fetch(url)
-        .then(function (res, reject) {
-          // handle the response
-          const file = fs.createWriteStream(`${process.env.TARGET_DIR}/${id}`);
-          res.body.pipe(file);
-          res.body.on("error", reject);
-          file.on("finish", res);
-        })
-        .catch(function (err) {
-          // handle the error
-        });
+      for (const el of out) {
+        const url = el.image;
+        const id = el.id;
+        console.log(url)
+        await fetch(url)
+          .then(async function (res, reject) {
+            // handle the response
+            // const file = fs.createWriteStream(`${process.env.TARGET_DIR}/${id}`);
+            // res.body.pipe(file);
+            // res.body.on("error", reject);
+            // file.on("finish", res);
+            console.log(el.id, el.name);
+            let p5Instance = p5.createSketch(sketch);
+            p5Instance.soup = { url, id };
+            await p5Instance.draw();
+          })
+          .catch(function (err) {
+            // handle the error
+          });
+      }
     }
   );
 }
@@ -92,12 +98,15 @@ function sketch(p) {
     p.noLoop();
   }
   p.draw = () => {
-    p.background(50);
-    p.text('hello world!', 50, 100);
-    p.saveCanvas(canvas, `${ process.env.TARGET_DIR }/${ "test" }`, 'png').then(filename => {
-      console.log(`saved the canvas as ${filename}`);
-    });
+    if (p.soup !== undefined) {
+      p.background(50);
+      p.loadImage(p.soup.url).then((img) => {
+        p.image(img, 0, 0, p.width, p.height);
+        p.text('hello world!', 50, 100);
+        p.saveCanvas(canvas, `${ process.env.TARGET_DIR }/${ p.soup.id }`, 'png').then(filename => {
+          console.log(`saved the canvas as ${filename}`);
+        });
+      })
+    }
   }
 }
-
-let p5Instance = p5.createSketch(sketch);
