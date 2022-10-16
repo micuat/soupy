@@ -71,7 +71,7 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
       fetch(url)
         .then(function (res, reject) {
           // handle the response
-          const file = fs.createWriteStream(`${ process.env.TARGET_DIR }/${ id }`);
+          const file = fs.createWriteStream(`${process.env.TARGET_DIR}/${id}`);
           res.body.pipe(file);
           res.body.on("error", reject);
           file.on("finish", res);
@@ -82,3 +82,22 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
     }
   );
 }
+
+const p5 = require('node-p5');
+
+function sketch(p) {
+  let canvas;
+  p.setup = () => {
+    canvas = p.createCanvas(200, 200);
+    p.noLoop();
+  }
+  p.draw = () => {
+    p.background(50);
+    p.text('hello world!', 50, 100);
+    p.saveCanvas(canvas, `${ process.env.TARGET_DIR }/${ "test" }`, 'png').then(filename => {
+      console.log(`saved the canvas as ${filename}`);
+    });
+  }
+}
+
+let p5Instance = p5.createSketch(sketch);
