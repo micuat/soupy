@@ -3,6 +3,7 @@ const fetch = require("node-fetch");
 // const express = require("express");
 // const app = express();
 const fs = require('fs');
+const { exec } = require('child_process');
 // let server;
 // if (process.env.HTTP == 1) {
 //   server = require("http").createServer(app);
@@ -79,11 +80,25 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
             console.log(el.id, el.name);
             let p5Instance = p5.createSketch(sketch);
             p5Instance.soup = { url, id };
-            await p5Instance.draw();
+            await p5Instance.init();
+            while (p5Instance.finished === false) {
+              await p5Instance.draw();
+            }
           })
           .catch(function (err) {
             // handle the error
           });
+        
+        const webm = `${ process.env.TARGET_DIR }/${ id }.webm`;
+        exec(`ffmpeg -y -r 2 -i ${ process.env.TEMP_DIR }/${ id }_%03d.png ${ webm }`, (err, stdout, stderr) => {
+          if (err) {
+            // node couldn't execute the command
+            console.log("ffmpeg failed");
+            return;
+          }
+          console.log(`saved to ${ webm }`);
+        });
+        break;
       }
     }
   );
@@ -93,20 +108,77 @@ const p5 = require('node-p5');
 
 function sketch(p) {
   let canvas;
+  let curFrame = 0;
+  const frames = 10;
+  const mode = Math.floor(Math.random() * 4)
+  let img;
   p.setup = () => {
-    canvas = p.createCanvas(200, 200);
+    canvas = p.createCanvas(300, 300);
     p.noLoop();
+    p.finished = false;
   }
-  p.draw = () => {
+  p.init = async () => {
+    await p.loadImage(p.soup.url).then(async (loadedImg) => {
+      img = loadedImg;
+    })
+  }
+  p.draw = async () => {
     if (p.soup !== undefined) {
-      p.background(50);
-      p.loadImage(p.soup.url).then((img) => {
-        p.image(img, 0, 0, p.width, p.height);
-        p.text('hello world!', 50, 100);
-        p.saveCanvas(canvas, `${ process.env.TARGET_DIR }/${ p.soup.id }`, 'png').then(filename => {
-          console.log(`saved the canvas as ${filename}`);
-        });
-      })
+      let sr, sg, sb;
+      function setTint(r, g, b) {
+        sr = r;
+        sg = g;
+        sb = b;
+      }
+      switch(mode) {
+        case 0:
+          setTint(255, 0, 50 * (Math.abs(5 - curFrame)));
+          break;
+        case 1:
+          setTint(255, 50 * (Math.abs(5 - curFrame)), 0);
+          break;
+        // case 2:
+        //   p.tint(0, 255, 50 * (Math.abs(5 - curFrame)));
+        //   break;
+        // case 3:
+        //   p.tint(50 * (Math.abs(5 - curFrame)), 255, 0);
+        //   break;
+        case 2:
+          setTint(0, 50 * (Math.abs(5 - curFrame)), 255);
+          break;
+        case 3:
+          setTint(50 * (Math.abs(5 - curFrame)), 0, 255);
+          break;
+      }
+
+      p.push();
+
+      if (img.width > img.height) {
+        p.translate(p.width / 2, 0);
+        p.scale(p.height / img.height);
+        p.image(img, -img.width / 2, 0)
+      }
+      else {
+        p.translate(0, p.height / 2);
+        p.scale(p.width / img.width);
+        p.image(img, 0, -img.height / 2)
+      }
+
+      p.loadPixels();
+      for(let i = 0; i < p.pixels.length; i+=4) {
+        p.pixels[i + 0] *= sr / 255;
+        p.pixels[i + 1] *= sg / 255;
+        p.pixels[i + 2] *= sb / 255;
+      }
+      p.updatePixels();
+
+      p.pop();
+
+      await p.saveCanvas(canvas, `${ process.env.TEMP_DIR }/${ p.soup.id }_${ p.nf(curFrame, 3, 0) }`, 'png').then(filename => {
+        console.log(`saved the canvas as ${filename}`);
+        curFrame++;
+        p.finished = curFrame >= frames;
+      });
     }
   }
 }
