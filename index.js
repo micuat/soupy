@@ -90,6 +90,13 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
           });
         
         const webm = `${ process.env.TARGET_DIR }/${ id }.webm`;
+        exec(`cp ${ process.env.TEMP_DIR }/${ id }_000.png ${ process.env.TARGET_DIR }/${ id }_thumb.png`, (err, stdout, stderr) => {
+          if (err) {
+            // node couldn't execute the command
+            console.log("file copy failed");
+            return;
+          }
+        });
         exec(`ffmpeg -y -r 2 -i ${ process.env.TEMP_DIR }/${ id }_%03d.png ${ webm }`, (err, stdout, stderr) => {
           if (err) {
             // node couldn't execute the command
@@ -98,7 +105,7 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
           }
           console.log(`saved to ${ webm }`);
         });
-        break;
+        // break;
       }
     }
   );
@@ -111,6 +118,7 @@ function sketch(p) {
   let curFrame = 0;
   const frames = 10;
   const mode = Math.floor(Math.random() * 4)
+  let hueShift;
   let img;
   p.setup = () => {
     canvas = p.createCanvas(300, 300);
@@ -120,37 +128,61 @@ function sketch(p) {
   p.init = async () => {
     await p.loadImage(p.soup.url).then(async (loadedImg) => {
       img = loadedImg;
+      hueShift = p.hue(img.get(img.width/2, img.height/2)) + 0.35;
     })
   }
+  function RGBtoHSV(r, g, b) {
+    if (arguments.length === 1) {
+        g = r.g, b = r.b, r = r.r;
+    }
+    var max = Math.max(r, g, b), min = Math.min(r, g, b),
+        d = max - min,
+        h,
+        s = (max === 0 ? 0 : d / max),
+        v = max / 255;
+
+    switch (max) {
+        case min: h = 0; break;
+        case r: h = (g - b) + d * (g < b ? 6: 0); h /= 6 * d; break;
+        case g: h = (b - r) + d * 2; h /= 6 * d; break;
+        case b: h = (r - g) + d * 4; h /= 6 * d; break;
+    }
+
+    return {
+        h: h,
+        s: s,
+        v: v
+    };
+  }
+  
+  function HSVtoRGB(h, s, v) {
+    var r, g, b, i, f, p, q, t;
+    if (arguments.length === 1) {
+        s = h.s, v = h.v, h = h.h;
+    }
+    i = Math.floor(h * 6);
+    f = h * 6 - i;
+    p = v * (1 - s);
+    q = v * (1 - f * s);
+    t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+        case 0: r = v, g = t, b = p; break;
+        case 1: r = q, g = v, b = p; break;
+        case 2: r = p, g = v, b = t; break;
+        case 3: r = p, g = q, b = v; break;
+        case 4: r = t, g = p, b = v; break;
+        case 5: r = v, g = p, b = q; break;
+    }
+    return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+    };
+  }
+
   p.draw = async () => {
     if (p.soup !== undefined) {
-      let sr, sg, sb;
-      function setTint(r, g, b) {
-        sr = r;
-        sg = g;
-        sb = b;
-      }
-      switch(mode) {
-        case 0:
-          setTint(255, 0, 50 * (Math.abs(5 - curFrame)));
-          break;
-        case 1:
-          setTint(255, 50 * (Math.abs(5 - curFrame)), 0);
-          break;
-        // case 2:
-        //   p.tint(0, 255, 50 * (Math.abs(5 - curFrame)));
-        //   break;
-        // case 3:
-        //   p.tint(50 * (Math.abs(5 - curFrame)), 255, 0);
-        //   break;
-        case 2:
-          setTint(0, 50 * (Math.abs(5 - curFrame)), 255);
-          break;
-        case 3:
-          setTint(50 * (Math.abs(5 - curFrame)), 0, 255);
-          break;
-      }
-
+      //src(s0).mult(osc(2,1).kaleid().blend(osc(2,1),1).color(1,-1,1).hue(.1)).out()
       p.push();
 
       if (img.width > img.height) {
@@ -166,9 +198,25 @@ function sketch(p) {
 
       p.loadPixels();
       for(let i = 0; i < p.pixels.length; i+=4) {
-        p.pixels[i + 0] *= sr / 255;
-        p.pixels[i + 1] *= sg / 255;
-        p.pixels[i + 2] *= sb / 255;
+        let x = (i / 4) % p.width / p.width;
+        let offset = 0;
+        let frequency = 2;
+        let time = curFrame / 10;
+        let sync = Math.PI * 1;
+        let or = Math.sin((x-offset/frequency+time*sync)*frequency)*0.5  + 0.5;
+        let og = Math.sin((x+time*sync)*frequency)*0.5 + 0.5;
+        let ob = Math.sin((x+offset/frequency+time*sync)*frequency)*0.5  + 0.5;
+
+        let sr = or * 1;
+        let sg = (og * -1 + 2) % 1;
+        let sb = ob * 0;
+        
+        let hsv = RGBtoHSV(sr * 255, sg * 255, sb * 255);
+        hsv.h = (hsv.h + hueShift) % 1;
+        let rgb = HSVtoRGB(hsv);
+        p.pixels[i + 0] *= rgb.r / 255;
+        p.pixels[i + 1] *= rgb.g / 255;
+        p.pixels[i + 2] *= rgb.b / 255;
       }
       p.updatePixels();
 
