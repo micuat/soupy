@@ -51,6 +51,14 @@ db.serialize(() => {
 const AirtableLoader = require("./airtable_loader.js");
 const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.env.AIRTABLE_BASENAME);
 
+const dataPath = `${ process.env.TARGET_DIR }/data.json`;
+const lastData = loadData();
+
+function loadData() {
+  const dataString = fs.readFileSync(dataPath, 'utf8');
+  return JSON.parse(dataString);
+}
+
 {
   const out = [];
   airtableLoader.load(
@@ -64,21 +72,25 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
     },
     // done
     async () => {
-      // console.log(out);
-      const jsonFileStream = fs.createWriteStream(`${ process.env.TARGET_DIR }/data.json`);
-      jsonFileStream.write(JSON.stringify(out));
-      jsonFileStream.end();
+      function saveCurrentData() {
+        const jsonFileStream = fs.createWriteStream(dataPath);
+        jsonFileStream.write(JSON.stringify(out));
+        jsonFileStream.end();
+      }
+      saveCurrentData();
 
       for (const el of out) {
         const url = el.image;
         const id = el.id;
         console.log(url)
 
-        const webm = `${ process.env.TARGET_DIR }/${ id }.webm`;
-        if (fs.existsSync(webm) === true) {
+        const lastEl = lastData.find(e => e.id === el.id);
+        if (lastEl !== undefined && lastEl.image === el.image) {
           console.log(`skipping ${ id }: ${ el.name }`);
           continue;
         }
+
+        const webm = `${ process.env.TARGET_DIR }/${ id }.webm`;
 
         await fetch(url)
           .then(async function (res, reject) {
