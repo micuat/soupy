@@ -84,8 +84,10 @@ function loadData() {
         const id = el.id;
         console.log(url)
 
+        const forceUpdate = true;
+
         const lastEl = lastData.find(e => e.id === el.id);
-        if (lastEl !== undefined && lastEl.image === el.image) {
+        if (forceUpdate === false && lastEl !== undefined && lastEl.image === el.image) {
           console.log(`skipping ${ id }: ${ el.name }`);
           continue;
         }
@@ -111,21 +113,22 @@ function loadData() {
             // handle the error
           });
         
-        exec(`cp ${ process.env.TEMP_DIR }/${ id }_000.png ${ process.env.TARGET_DIR }/${ id }_thumb.png`, (err, stdout, stderr) => {
+        exec(`cp ${ process.env.TEMP_DIR }/${ id }_glitch_000.png ${ process.env.TARGET_DIR }/${ id }_thumb.png`, (err, stdout, stderr) => {
+        // exec(`cp ${ process.env.TEMP_DIR }/${ id }_000.png ${ process.env.TARGET_DIR }/${ id }_thumb.png`, (err, stdout, stderr) => {
           if (err) {
             // node couldn't execute the command
             console.log("file copy failed");
             return;
           }
         });
-        exec(`ffmpeg -y -r 2 -i ${ process.env.TEMP_DIR }/${ id }_%03d.png ${ webm }`, (err, stdout, stderr) => {
-          if (err) {
-            // node couldn't execute the command
-            console.log("ffmpeg failed");
-            return;
-          }
-          console.log(`saved to ${ webm }`);
-        });
+        // exec(`ffmpeg -y -r 2 -i ${ process.env.TEMP_DIR }/${ id }_%03d.png ${ webm }`, (err, stdout, stderr) => {
+        //   if (err) {
+        //     // node couldn't execute the command
+        //     console.log("ffmpeg failed");
+        //     return;
+        //   }
+        //   console.log(`saved to ${ webm }`);
+        // });
         // break;
       }
     }
@@ -134,11 +137,10 @@ function loadData() {
 
 const p5 = require('node-p5');
 
-function sketch(p) {
+function sketchHydra(p) {
   let canvas;
   let curFrame = 0;
-  const frames = 10;
-  const mode = Math.floor(Math.random() * 4)
+  const frames = 1;
   let hueShift;
   let img;
   p.setup = () => {
@@ -149,7 +151,7 @@ function sketch(p) {
   p.init = async () => {
     await p.loadImage(p.soup.url).then(async (loadedImg) => {
       img = loadedImg;
-      hueShift = p.hue(img.get(img.width/2, img.height/2)) + 0.35;
+      hueShift = p.hue(img.get(img.width/2, img.height/2)) / 255;
     })
   }
   function RGBtoHSV(r, g, b) {
@@ -251,3 +253,72 @@ function sketch(p) {
     }
   }
 }
+
+function sketch(p) {
+  let canvas;
+  let img;
+  let pg;
+  let curFrame = 0;
+  const frames = 1;
+  
+  const a = 100*100*4;
+  const b = 300*300*4-256;
+  const d = 100;
+  p.setup = () => {
+    canvas = p.createCanvas(300, 300);
+    p.noLoop();
+    p.pixelDensity(1);
+    p.finished = false;
+  };
+
+  p.init = async () => {
+    await p.loadImage(p.soup.url).then(async (loadedImg) => {
+      img = loadedImg;
+      pg = p.createGraphics(p.width, p.height);
+      pg.pixelDensity(1);
+      pg.background(0, 0, 0, 255);
+      pg.push();
+  
+      if (img.width > img.height) {
+        pg.translate(pg.width / 2, 0);
+        pg.scale(pg.height / img.height);
+        pg.image(img, -img.width / 2, 0)
+      }
+      else {
+        pg.translate(0, pg.height / 2);
+        pg.scale(pg.width / img.width);
+        pg.image(img, 0, -img.height / 2)
+      }
+      pg.pop();
+    })
+  }
+ 
+  p.draw = async () => {
+    if (p.soup !== undefined) {
+      const w = p.width;
+      pg.loadPixels();
+      let pixels = pg.pixels;
+      for (let x = 1; x < w * w * 4; x += w*2) {
+        pixels[x] *= (x/4) % w < d ? 0.5 : 2;
+        pixels.copyWithin(x - pixels[a*2] - pixels[a] * 2, x + pixels[a], x + w-1);
+      }
+      pixels.copyWithin(b-8e3, 1, 8e3);
+      pixels.reverse();
+      pg.updatePixels();
+      
+      p.push();
+      p.translate(p.width/2, p.height/2);
+      p.rotate(Math.PI)
+      p.translate(-p.width/2, -p.height/2);
+      p.image(pg, 0, 0);
+      p.pop();
+
+      await p.saveCanvas(canvas, `${ process.env.TEMP_DIR }/${ p.soup.id }_glitch_${ p.nf(curFrame, 3, 0) }`, 'png').then(filename => {
+        console.log(`saved the canvas as ${filename}`);
+        curFrame++;
+        p.finished = curFrame >= frames;
+      });
+    }
+
+  };
+};
