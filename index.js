@@ -70,6 +70,13 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
         const url = el.image;
         const id = el.id;
         console.log(url)
+
+        const webm = `${ process.env.TARGET_DIR }/${ id }.webm`;
+        if (fs.existsSync(webm) === true) {
+          console.log(`skipping ${ id }: ${ el.name }`);
+          continue;
+        }
+
         await fetch(url)
           .then(async function (res, reject) {
             // handle the response
@@ -89,7 +96,6 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
             // handle the error
           });
         
-        const webm = `${ process.env.TARGET_DIR }/${ id }.webm`;
         exec(`cp ${ process.env.TEMP_DIR }/${ id }_000.png ${ process.env.TARGET_DIR }/${ id }_thumb.png`, (err, stdout, stderr) => {
           if (err) {
             // node couldn't execute the command
