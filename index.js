@@ -65,6 +65,9 @@ const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.
     // done
     async () => {
       // console.log(out);
+      const jsonFileStream = fs.createWriteStream(`${ process.env.TARGET_DIR }/data.json`);
+      jsonFileStream.write(JSON.stringify(out));
+      jsonFileStream.end();
 
       for (const el of out) {
         const url = el.image;

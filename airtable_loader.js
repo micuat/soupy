@@ -16,6 +16,7 @@ module.exports = class AirtableLoader {
           const el = {};
           el.id = e.id;
           el.name = e.fields.Name;
+          el.year = e.fields.Year;
           el.related = e.fields.Related;
           // el.created = new Date(e.fields.Created);
           el.notes = e.fields.Notes === undefined ? "" : e.fields.Notes;
