@@ -52,7 +52,7 @@ const AirtableLoader = require("./airtable_loader.js");
 const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.env.AIRTABLE_BASENAME);
 
 const dataPath = `${ process.env.TARGET_DIR }/data.json`;
-const lastData = loadData();
+const lastData = loadData(); //TODO fix
 
 function loadData() {
   const dataString = fs.readFileSync(dataPath, 'utf8');
@@ -66,6 +66,7 @@ function loadData() {
     (r) => {
       for (const el of r) {
         if (el.image !== "") {
+          el.image_url = `/generated/${ el.id }_org.png`;
           out.push(el);
         }
       }
@@ -94,30 +95,28 @@ function loadData() {
 
         const webm = `${ process.env.TARGET_DIR }/${ id }.webm`;
 
-        await fetch(url)
-          .then(async function (res, reject) {
-            // handle the response
-            // const file = fs.createWriteStream(`${process.env.TARGET_DIR}/${id}`);
-            // res.body.pipe(file);
-            // res.body.on("error", reject);
-            // file.on("finish", res);
-            console.log(el.id, el.name);
-            let p5Instance = p5.createSketch(sketch);
-            p5Instance.soup = { url, id };
-            await p5Instance.init();
-            while (p5Instance.finished === false) {
-              await p5Instance.draw();
-            }
-          })
-          .catch(function (err) {
-            // handle the error
-          });
+        console.log(el.id, el.name);
+        for (const s of [sketch, orgSaveSketch]) {
+          let p5Instance = p5.createSketch(s);
+          p5Instance.soup = { url, id };
+          await p5Instance.init();
+          while (p5Instance.finished === false) {
+            await p5Instance.draw();
+          }
+        }
         
         exec(`cp ${ process.env.TEMP_DIR }/${ id }_glitch_000.png ${ process.env.TARGET_DIR }/${ id }_thumb.png`, (err, stdout, stderr) => {
         // exec(`cp ${ process.env.TEMP_DIR }/${ id }_000.png ${ process.env.TARGET_DIR }/${ id }_thumb.png`, (err, stdout, stderr) => {
           if (err) {
             // node couldn't execute the command
-            console.log("file copy failed");
+            console.log("file copy 1 failed");
+            return;
+          }
+        });
+        exec(`cp ${ process.env.TEMP_DIR }/${ id }_org.png ${ process.env.TARGET_DIR }/${ id }_org.png`, (err, stdout, stderr) => {
+          if (err) {
+            // node couldn't execute the command
+            console.log("file copy 2 failed");
             return;
           }
         });
@@ -314,6 +313,58 @@ function sketch(p) {
       p.pop();
 
       await p.saveCanvas(canvas, `${ process.env.TEMP_DIR }/${ p.soup.id }_glitch_${ p.nf(curFrame, 3, 0) }`, 'png').then(filename => {
+        console.log(`saved the canvas as ${filename}`);
+        curFrame++;
+        p.finished = curFrame >= frames;
+      });
+    }
+
+  };
+};
+
+function orgSaveSketch(p) {
+  let canvas;
+  let img;
+  let pg;
+  let curFrame = 0;
+  const frames = 1;
+  
+  p.setup = () => {
+    canvas = p.createCanvas(800, 800);
+    p.noLoop();
+    p.pixelDensity(1);
+    p.finished = false;
+  };
+
+  p.init = async () => {
+    await p.loadImage(p.soup.url).then(async (loadedImg) => {
+      img = loadedImg;
+      pg = p.createGraphics(p.width, p.height);
+      pg.pixelDensity(1);
+      pg.background(0, 0, 0, 255);
+      pg.push();
+  
+      if (img.width > img.height) {
+        pg.translate(pg.width / 2, 0);
+        pg.scale(pg.height / img.height);
+        pg.image(img, -img.width / 2, 0)
+      }
+      else {
+        pg.translate(0, pg.height / 2);
+        pg.scale(pg.width / img.width);
+        pg.image(img, 0, -img.height / 2)
+      }
+      pg.pop();
+    })
+  }
+ 
+  p.draw = async () => {
+    if (p.soup !== undefined) {
+      p.push();
+      p.image(pg, 0, 0);
+      p.pop();
+
+      await p.saveCanvas(canvas, `${ process.env.TEMP_DIR }/${ p.soup.id }_org`, 'png').then(filename => {
         console.log(`saved the canvas as ${filename}`);
         curFrame++;
         p.finished = curFrame >= frames;
