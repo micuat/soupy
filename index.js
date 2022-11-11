@@ -46,12 +46,13 @@ function loadData() {
         if (forceUpdate) {
           doUpdate = true;
         }
-        if (lastEl === undefined) {
+        else if (lastEl === undefined) {
           doUpdate = true;
         }
-        if (el["last image modified"] !== lastEl["last image modified"]) {
+        else if (el["last image modified"] !== lastEl["last image modified"]) {
           doUpdate = true;
         }
+
         if (doUpdate === false) {
           console.log(`skipping ${ id }: ${ el.name }`);
           continue;
