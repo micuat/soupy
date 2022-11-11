@@ -33,22 +33,26 @@ function loadData() {
     },
     // done
     async () => {
-      function saveCurrentData() {
-        const jsonFileStream = fs.createWriteStream(dataPath);
-        jsonFileStream.write(JSON.stringify(out));
-        jsonFileStream.end();
-      }
-      saveCurrentData();
-
       for (const el of out) {
         const url = el.image;
         const id = el.id;
         console.log(url)
 
-        const forceUpdate = true;
+        const forceUpdate = false;
 
         const lastEl = lastData.find(e => e.id === el.id);
-        if (forceUpdate === false && lastEl !== undefined && lastEl.image === el.image) {
+
+        let doUpdate = false;
+        if (forceUpdate) {
+          doUpdate = true;
+        }
+        if (lastEl === undefined) {
+          doUpdate = true;
+        }
+        if (el["last image modified"] !== lastEl["last image modified"]) {
+          doUpdate = true;
+        }
+        if (doUpdate === false) {
           console.log(`skipping ${ id }: ${ el.name }`);
           continue;
         }
@@ -90,6 +94,12 @@ function loadData() {
         // });
         // break;
       }
+      function saveCurrentData() {
+        const jsonFileStream = fs.createWriteStream(dataPath);
+        jsonFileStream.write(JSON.stringify(out));
+        jsonFileStream.end();
+      }
+      saveCurrentData();
     }
   );
 }
