@@ -1,52 +1,7 @@
 require('dotenv').config();
 const fetch = require("node-fetch");
-// const express = require("express");
-// const app = express();
 const fs = require('fs');
 const { exec } = require('child_process');
-// let server;
-// if (process.env.HTTP == 1) {
-//   server = require("http").createServer(app);
-// }
-// else {
-//   const https = require('https');
-//   const options = {
-//     key: fs.readFileSync('/opt/certs/privkey.pem'),
-//     cert: fs.readFileSync('/opt/certs/cert.pem')
-//   };
-//   server = https.createServer(options, app)
-// }
-// const port = process.env.PORT || 3000;
-
-// const requestIp = require('request-ip');
-
-// init sqlite db
-const dbFile = "./.data/sqliteImg.db";
-const exists = fs.existsSync(dbFile);
-const sqlite3 = require("sqlite3").verbose();
-const db = new sqlite3.Database(dbFile);
-
-db.serialize(() => {
-  if (!exists) {
-    db.run(
-      "CREATE TABLE Logs (id INTEGER PRIMARY KEY AUTOINCREMENT, json TEXT)"
-    );
-  }
-});
-
-// server.listen(port, () => {
-//   console.log(`listening at port ${port}!`);
-// });
-
-// app.use(requestIp.mw())
-
-// app.use("/ip", function (req, res) {
-//   const ip = req.clientIp;
-//   res.end(ip);
-// });
-
-// app.set('trust proxy', true);
-// app.use(express.static("public"));
 
 const AirtableLoader = require("./airtable_loader.js");
 const airtableLoader = new AirtableLoader(process.env.AIRTABLE_API_KEY, process.env.AIRTABLE_BASENAME);
