@@ -10,8 +10,13 @@ const dataPath = `${ process.env.TARGET_DIR }/data.json`;
 const lastData = loadData(); //TODO fix
 
 function loadData() {
-  const dataString = fs.readFileSync(dataPath, 'utf8');
-  return JSON.parse(dataString);
+  try {
+    const dataString = fs.readFileSync(dataPath, 'utf8');
+    return JSON.parse(dataString);
+  } catch (e) {
+    console.log("no existing data found")
+    return [];
+  }
 }
 
 {
